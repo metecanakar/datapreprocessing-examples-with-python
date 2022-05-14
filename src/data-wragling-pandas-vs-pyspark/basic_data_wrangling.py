@@ -93,7 +93,7 @@ def _filtering(pd_df_sales, spark_df_sales):
         pd_df_sales: Pandas dataframe
         spark_df_sales: Spark dataframe
     """
-    
+
     # pandas
     # get values with net_sales < 30
     #     date  net_sales  store_id
@@ -129,6 +129,20 @@ def _filtering(pd_df_sales, spark_df_sales):
     spark_df_sales_net_sales_smaller_than_30_and_date_smaller_than_2022_02_02.show()
 
 
+def _add_column(pd_df_sales, spark_df_sales):
+    """
+    Add column to existing dataframes
+    Args:
+        pd_df_sales: Pandas df
+        spark_df_sales: Pyspark df
+    """
+    # pandas
+    pd_df_sales["new_column"] = 1 / pd_df_sales.net_sales
+
+    # pyspark
+    spark_df_sales = spark_df_sales.withColumn("new_column", 1 / spark_df_sales.net_sales)
+
+
 if __name__ == "__main__":
     spark = SparkSession \
         .builder \
@@ -147,3 +161,5 @@ if __name__ == "__main__":
     _drop_column(pd_df_sales, spark_df_sales)
 
     _filtering(pd_df_sales, spark_df_sales)
+
+    _add_column(pd_df_sales, spark_df_sales)
