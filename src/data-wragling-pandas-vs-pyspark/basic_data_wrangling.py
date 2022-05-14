@@ -3,6 +3,12 @@ from pyspark.sql import SparkSession
 
 
 def _create_pandas_dfs():
+    """
+    Create 2 pandas dataframes.
+    Returns:
+        pd_df_sales containing sales data. pd_df_stores containing store information.
+
+    """
     data_sales = {"date": ["2022-02-01", "2022-02-02", "2022-02-03", "2021-02-01", "2021-02-02", "2021-02-03"],
                   "net_sales": [10, 20, 50, 30, 40, 80],
                   "store_id": [1, 2, 2, 3, 4, 4]}
@@ -17,6 +23,16 @@ def _create_pandas_dfs():
 
 
 def _create_spark_df(spark, pd_df_sales, pd_df_stores):
+    """
+    Create 2 spark dataframes based on the dataframes created by the _create_pandas_dfs.
+    Args:
+        spark: SparkSession
+        pd_df_sales: Pandas sales dataframe
+        pd_df_stores: Pandas store dataframe
+
+    Returns:
+        spark_df_sales, spark_df_stores
+    """
     spark_df_sales = spark.createDataFrame(data=pd_df_sales)
     spark_df_stores = spark.createDataFrame(data=pd_df_stores)
 
@@ -24,6 +40,12 @@ def _create_spark_df(spark, pd_df_sales, pd_df_stores):
 
 
 def _view_dataframe(pd_df_sales, spark_df_sales):
+    """
+    View pd dataframe and spark dataframe.
+    Args:
+        pd_df_sales: Pandas dataframe
+        spark_df_sales: Spark dataframe
+    """
     # pandas
     print(pd_df_sales)
     # PySpark
@@ -31,6 +53,12 @@ def _view_dataframe(pd_df_sales, spark_df_sales):
 
 
 def _rename_columns(pd_df_sales, spark_df_sales):
+    """
+    Rename columns
+    Args:
+        pd_df_sales: Pandas dataframe
+        spark_df_sales: Spark dataframe
+    """
     # pandas
     pd_df_sales.columns
     pd_df_sales = pd_df_sales.rename(columns={"date": "date_new"})
@@ -42,6 +70,12 @@ def _rename_columns(pd_df_sales, spark_df_sales):
 
 
 def _drop_column(pd_df_sales, spark_df_sales):
+    """
+    Drop columns
+    Args:
+        pd_df_sales: Pandas dataframe
+        spark_df_sales: Spark dataframe
+    """
     # pandas
     # axis=1 is column
     pd_df_sales = pd_df_sales.drop("date", axis=1)
@@ -53,6 +87,13 @@ def _drop_column(pd_df_sales, spark_df_sales):
 
 
 def _filtering(pd_df_sales, spark_df_sales):
+    """
+    Filtering via pandas and pyspark dataframes
+    Args:
+        pd_df_sales: Pandas dataframe
+        spark_df_sales: Spark dataframe
+    """
+    
     # pandas
     # get values with net_sales < 30
     #     date  net_sales  store_id
