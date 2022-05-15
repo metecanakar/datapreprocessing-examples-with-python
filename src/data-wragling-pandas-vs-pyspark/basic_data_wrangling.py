@@ -58,9 +58,8 @@ def _immutability_check(pd_df_sales, spark_df_sales):
     spark_df_sales = spark_df_sales.filter(spark_df_sales.store_id == 1)
     id_rdd_after = spark_df_sales.rdd.id()
     obj_id_after = id(spark_df_sales)
-    print(f"pyspark rdd ids equal {id_rdd_before==id_rdd_after}")
+    print(f"pyspark rdd ids equal {id_rdd_before == id_rdd_after}")
     print(f"pyspark obj ids equal {obj_id_before == obj_id_after}")
-
 
     # Pandas
     # new pandas dataframe created
@@ -149,7 +148,10 @@ def _filtering(pd_df_sales, spark_df_sales):
     # 0  2022-02-01         10         1
     # 0  2022-02-01         10         1
     pd_df_sales_net_sales_smaller_than_30 = pd_df_sales[pd_df_sales.net_sales < 30]
+    # or using loc
+    pd_df_sales_net_sales_smaller_than_30_alternative = pd_df_sales.loc[pd_df_sales["net_sales"] < 30]
     print(pd_df_sales_net_sales_smaller_than_30)
+    print(pd_df_sales_net_sales_smaller_than_30_alternative)
 
     # get values with net_sales < 30 and date smaller than 2022_02_02
     # pd_df_sales_net_sales_smaller_than_30_and_date_smaller_than_2022_02_02
@@ -157,7 +159,11 @@ def _filtering(pd_df_sales, spark_df_sales):
     # 0  2022-02-01         10         1
     pd_df_sales_net_sales_smaller_than_30_and_date_smaller_than_2022_02_02 = pd_df_sales[
         (pd_df_sales.net_sales < 30) & (pd_df_sales.date < "2022-02-02")]
+    # or using loc
+    pd_df_sales_net_sales_smaller_than_30_and_date_smaller_than_2022_02_02_alternative = pd_df_sales.loc[
+        (pd_df_sales["net_sales"] < 30) & (pd_df_sales["date"] < "2022-02-02")]
     print(pd_df_sales_net_sales_smaller_than_30_and_date_smaller_than_2022_02_02)
+    print(pd_df_sales_net_sales_smaller_than_30_and_date_smaller_than_2022_02_02_alternative)
 
     # PySpark
     # +----------+---------+--------+
@@ -192,6 +198,24 @@ def _add_column(pd_df_sales, spark_df_sales):
     spark_df_sales = spark_df_sales.withColumn("new_column", 1 / spark_df_sales.net_sales)
 
 
+def _fill_nulls(pd_df_sales, spark_df_sales):
+    """
+    Fill null values.
+    Args:
+        pd_df_sales: Pandas df
+        spark_df_sales: Pyspark df
+
+    """
+    # pandas
+    pd_df_sales.fillna(0)
+    # pyspark
+    spark_df_sales.fillna(0)
+
+
+def _aggregation(pd_df_sales, spark_df_sales):
+    pass
+
+
 if __name__ == "__main__":
     spark = SparkSession \
         .builder \
@@ -214,3 +238,5 @@ if __name__ == "__main__":
     _filtering(pd_df_sales, spark_df_sales)
 
     _add_column(pd_df_sales, spark_df_sales)
+
+    _fill_nulls(pd_df_sales, spark_df_sales)
