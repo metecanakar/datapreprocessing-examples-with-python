@@ -39,6 +39,55 @@ def _create_spark_df(spark, pd_df_sales, pd_df_stores):
     return spark_df_sales, spark_df_stores
 
 
+def _immutability_check(pd_df_sales, spark_df_sales):
+    """
+    Spark dataframes are immutable.
+    It means that when you try to make a change you get a new dataframe with a new reference.
+    And the old dataframe remains unmodified.
+
+    All pandas data structures are value-mutable (the values they contain can be altered)
+    Returns:
+
+    """
+    # Filtering example
+    print("Doing filtering")
+    # PySpark
+    # New Pyspark dataframe created
+    id_rdd_before = spark_df_sales.rdd.id()
+    obj_id_before = id(spark_df_sales)
+    spark_df_sales = spark_df_sales.filter(spark_df_sales.store_id == 1)
+    id_rdd_after = spark_df_sales.rdd.id()
+    obj_id_after = id(spark_df_sales)
+    print(f"pyspark rdd ids equal {id_rdd_before==id_rdd_after}")
+    print(f"pyspark obj ids equal {obj_id_before == obj_id_after}")
+
+
+    # Pandas
+    # new pandas dataframe created
+    obj_id_before = id(pd_df_sales)
+    pd_df_sales = pd_df_sales[pd_df_sales.store_id == 1]
+    obj_id_after = id(pd_df_sales)
+    print(f"pandas obj ids equal {obj_id_before == obj_id_after}")
+
+    # Add new column
+    # New Pyspark dataframe created
+    print("Adding new column")
+    # PySpark
+    obj_id_before = id(spark_df_sales)
+    spark_df_sales = spark_df_sales.withColumn("new_column", 1 / spark_df_sales.store_id)
+    obj_id_after = id(spark_df_sales)
+    print(f"pyspark obj ids equal {obj_id_before == obj_id_after}")
+
+    # Pandas
+    # when adding a new column: the existing dataframe is updated (same reference)
+    obj_id_before = id(pd_df_sales)
+    pd_df_sales["new_column"] = 1 / pd_df_sales.store_id
+    obj_id_after = id(pd_df_sales)
+    print(f"pandas obj ids equal {obj_id_before == obj_id_after}")
+
+    print("immutability test completed")
+
+
 def _view_dataframe(pd_df_sales, spark_df_sales):
     """
     View pd dataframe and spark dataframe.
@@ -153,6 +202,8 @@ if __name__ == "__main__":
     pd_df_sales, pd_df_stores = _create_pandas_dfs()
 
     spark_df_sales, spark_df_stores = _create_spark_df(spark, pd_df_sales, pd_df_stores)
+
+    _immutability_check(pd_df_sales, spark_df_sales)
 
     _view_dataframe(pd_df_sales, spark_df_sales)
 
