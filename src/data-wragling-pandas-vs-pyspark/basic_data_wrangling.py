@@ -1,5 +1,7 @@
 import pandas as pd
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+import numpy as np
 
 
 def _create_pandas_dfs():
@@ -11,11 +13,11 @@ def _create_pandas_dfs():
     """
     data_sales = {"date": ["2022-02-01", "2022-02-02", "2022-02-03", "2021-02-01", "2021-02-02", "2021-02-03"],
                   "net_sales": [10, 20, 50, 30, 40, 80],
-                  "store_id": [1, 2, 2, 3, 4, 4]}
+                  "store_id": [1, 2, 2, 3, 4, 4],
+                  "year": ["2022", "2022", "2022", "2021", "2021", "2021"]}
     pd_df_sales = pd.DataFrame(data=data_sales)
 
-    data_stores = {"date": ["2022-02-01", "2022-02-02", "2022-02-03", "2021-02-01", "2021-02-02", "2021-02-03"],
-                   "store_id": [1, 2, 2, 3, 4, 4],
+    data_stores = {"store_id": [1, 2, 2, 3, 4, 4],
                    "store_name": ["store_1", "store_2", "store_2", "store_3", "store_4", "store_4"]}
     pd_df_stores = pd.DataFrame(data=data_stores)
 
@@ -212,9 +214,39 @@ def _fill_nulls(pd_df_sales, spark_df_sales):
     spark_df_sales.fillna(0)
 
 
-def _aggregation(pd_df_sales, spark_df_sales):
-    pass
+def _aggregation(spark, pd_df_sales, spark_df_sales):
+    """
+    Do aggregations using pyspark and pandas
+    Args:
+        spark: SparkSession
+        pd_df_sales: Pandas df
+        spark_df_sales: Spark df
+    """
+    # pyspark
+    # using GroupedData.agg
+    # dictionary expression multiple metrics on the same column doesn't work for some reason. Therefore, use functions
+    #exprs = {"net_sales": "mean", "net_sales": "max"}
+    spark_df_sales_with_mean_and_max_sales = spark_df_sales.groupBy("year").\
+        agg(F.mean("net_sales"), F.max("net_sales")).\
+        withColumnRenamed("avg(net_sales)", "avg_net_sales").\
+        withColumnRenamed("max(net_sales)", "max_net_sales")
+    spark_df_sales_with_mean_and_max_sales.show()
 
+    # using pure sql
+    spark_df_sales.createOrReplaceTempView("sales")
+    query = "SELECT year, AVG(net_sales) as avg_net_sales, MAX(net_sales) as max_net_sales" \
+            " FROM sales" \
+            " GROUP BY year"
+    spark_df_sales_with_mean_and_max_sales_sql_generated = spark.sql(query)
+    spark_df_sales_with_mean_and_max_sales_sql_generated.show()
+
+    # pandas
+    exprs_pd = {"net_sales": [np.average, np.max]}
+    pd_df_sales_with_mean_and_max = pd_df_sales.groupby(by=["year"]).agg(exprs_pd)
+    pd_df_sales_with_mean_and_max = pd_df_sales_with_mean_and_max.reset_index().\
+        rename(columns={"average": "avg_net_sales",
+                        "amax": "max_net_sales"}).\
+        sort_values(by="year", ascending=False)
 
 if __name__ == "__main__":
     spark = SparkSession \
@@ -240,3 +272,5 @@ if __name__ == "__main__":
     _add_column(pd_df_sales, spark_df_sales)
 
     _fill_nulls(pd_df_sales, spark_df_sales)
+
+    _aggregation(spark, pd_df_sales, spark_df_sales)
