@@ -250,6 +250,12 @@ def _aggregation(spark, pd_df_sales, spark_df_sales):
 
 
 def _percentile_calculation(spark):
+    """
+    Example usage of percentile_approx with explode and alias.
+    Args:
+        spark: SparkSession
+
+    """
     # create an example dataframe
     notes = {"year": [2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021,
                       2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022],
@@ -317,23 +323,23 @@ def _percentile_calculation(spark):
     # For each year calculate the difference between the 3rd quartile (75th percentile) and the 1st quartile (25th percentile)
     spark_df_notes.groupby("year").agg(
         (F.percentile_approx("notes", 0.75) - F.percentile_approx("notes", 0.25)).alias("dif_3rd_1st_quartiles")).show()
-    #+----+---------------------+
-    #| year | dif_3rd_1st_quartiles |
-    #+----+---------------------+
-    #| 2021 | 6 |
-    #| 2022 | 60 |
-    #+----+---------------------+
+    # +----+---------------------+
+    # | year | dif_3rd_1st_quartiles |
+    # +----+---------------------+
+    # | 2021 | 6 |
+    # | 2022 | 60 |
+    # +----+---------------------+
 
     # For each year calculate the half of the difference between the 3rd quartile (75th percentile) and the 1st quartile (25th percentile)
     spark_df_notes.groupby("year").agg(
         ((F.percentile_approx("notes", 0.75) - F.percentile_approx("notes", 0.25)) / 2).alias(
             "dif_3rd_1st_quartiles_divided_by_2")).show()
-    #+----+----------------------------------+
-    #| year | dif_3rd_1st_quartiles_divided_by_2 |
-    #+----+----------------------------------+
-    #| 2021 | 3.0 |
-    #| 2022 | 30.0 |
-    #+----+----------------------------------+
+    # +----+----------------------------------+
+    # | year | dif_3rd_1st_quartiles_divided_by_2 |
+    # +----+----------------------------------+
+    # | 2021 | 3.0 |
+    # | 2022 | 30.0 |
+    # +----+----------------------------------+
 
 
 if __name__ == "__main__":
