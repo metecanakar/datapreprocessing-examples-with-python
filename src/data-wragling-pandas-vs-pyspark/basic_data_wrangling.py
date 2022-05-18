@@ -225,10 +225,10 @@ def _aggregation(spark, pd_df_sales, spark_df_sales):
     # pyspark
     # using GroupedData.agg
     # dictionary expression multiple metrics on the same column doesn't work for some reason. Therefore, use functions
-    #exprs = {"net_sales": "mean", "net_sales": "max"}
-    spark_df_sales_with_mean_and_max_sales = spark_df_sales.groupBy("year").\
-        agg(F.mean("net_sales"), F.max("net_sales")).\
-        withColumnRenamed("avg(net_sales)", "avg_net_sales").\
+    # exprs = {"net_sales": "mean", "net_sales": "max"}
+    spark_df_sales_with_mean_and_max_sales = spark_df_sales.groupBy("year"). \
+        agg(F.mean("net_sales"), F.max("net_sales")). \
+        withColumnRenamed("avg(net_sales)", "avg_net_sales"). \
         withColumnRenamed("max(net_sales)", "max_net_sales")
     spark_df_sales_with_mean_and_max_sales.show()
 
@@ -243,10 +243,98 @@ def _aggregation(spark, pd_df_sales, spark_df_sales):
     # pandas
     exprs_pd = {"net_sales": [np.average, np.max]}
     pd_df_sales_with_mean_and_max = pd_df_sales.groupby(by=["year"]).agg(exprs_pd)
-    pd_df_sales_with_mean_and_max = pd_df_sales_with_mean_and_max.reset_index().\
+    pd_df_sales_with_mean_and_max = pd_df_sales_with_mean_and_max.reset_index(). \
         rename(columns={"average": "avg_net_sales",
-                        "amax": "max_net_sales"}).\
+                        "amax": "max_net_sales"}). \
         sort_values(by="year", ascending=False)
+
+
+def _percentile_calculation(spark):
+    # create an example dataframe
+    notes = {"year": [2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021,
+                      2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022],
+             "notes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                       0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+    pd_df_notes = pd.DataFrame(data=notes)
+    spark_df_notes = spark.createDataFrame(data=pd_df_notes)
+
+    # calculate the median value for each year
+    spark_df_notes_years_with_median = spark_df_notes.groupby("year").agg(
+        F.percentile_approx("notes", 0.5).alias("median"))
+    spark_df_notes_years_with_median.show()
+    # +----+------+
+    # | year | median |
+    # +----+------+
+    # | 2021 | 5 |
+    # | 2022 | 50 |
+    # +----+------+
+
+    # only for the year 2022 calculate the quartiles
+    spark_df_notes_quartiles = spark_df_notes.filter(spark_df_notes.year == 2022). \
+        select(F.percentile_approx("notes", [0.25, 0.5, 0.75]).alias("quartiles"))
+    spark_df_notes_quartiles.show()
+    # +------------+
+    # | quartiles |
+    # +------------+
+    # | [20, 50, 80] |
+    # +------------+
+
+    # only for the year 2022 calculate the quartiles exploded (instead of array type explode it to rows)
+    spark_df_notes_quartiles_exploded = spark_df_notes_quartiles.select(
+        F.explode("quartiles").alias("exploded_quartiles"))
+    spark_df_notes_quartiles_exploded.show()
+    # +------------------+
+    # | exploded_quartiles |
+    # +------------------+
+    # | 20 |
+    # | 50 |
+    # | 80 |
+    # +------------------+
+
+    # calculate the quartiles for each year (as array type)
+    spark_df_notes.groupby("year").agg(F.percentile_approx("notes", [0.25, 0.5, 0.75]).alias("quartiles")).show()
+    # +----+------------+
+    # | year | quartiles |
+    # +----+------------+
+    # | 2021 | [2, 5, 8] |
+    # | 2022 | [20, 50, 80] |
+    # +----+------------+
+
+    # calculate the quartiles for each year and explode
+    spark_df_notes.groupby("year").agg(
+        F.explode(F.percentile_approx("notes", [0.25, 0.5, 0.75])).alias("quartiles")).show()
+    # +----+---------+
+    # | year | quartiles |
+    # +----+---------+
+    # | 2021 | 2 |
+    # | 2021 | 5 |
+    # | 2021 | 8 |
+    # | 2022 | 20 |
+    # | 2022 | 50 |
+    # | 2022 | 80 |
+    # +----+---------+
+
+    # For each year calculate the difference between the 3rd quartile (75th percentile) and the 1st quartile (25th percentile)
+    spark_df_notes.groupby("year").agg(
+        (F.percentile_approx("notes", 0.75) - F.percentile_approx("notes", 0.25)).alias("dif_3rd_1st_quartiles")).show()
+    #+----+---------------------+
+    #| year | dif_3rd_1st_quartiles |
+    #+----+---------------------+
+    #| 2021 | 6 |
+    #| 2022 | 60 |
+    #+----+---------------------+
+
+    # For each year calculate the half of the difference between the 3rd quartile (75th percentile) and the 1st quartile (25th percentile)
+    spark_df_notes.groupby("year").agg(
+        ((F.percentile_approx("notes", 0.75) - F.percentile_approx("notes", 0.25)) / 2).alias(
+            "dif_3rd_1st_quartiles_divided_by_2")).show()
+    #+----+----------------------------------+
+    #| year | dif_3rd_1st_quartiles_divided_by_2 |
+    #+----+----------------------------------+
+    #| 2021 | 3.0 |
+    #| 2022 | 30.0 |
+    #+----+----------------------------------+
+
 
 if __name__ == "__main__":
     spark = SparkSession \
@@ -274,3 +362,5 @@ if __name__ == "__main__":
     _fill_nulls(pd_df_sales, spark_df_sales)
 
     _aggregation(spark, pd_df_sales, spark_df_sales)
+
+    _percentile_calculation(spark)
