@@ -341,6 +341,11 @@ def _percentile_calculation(spark):
     # | 2022 | 30.0 |
     # +----+----------------------------------+
 
+def _join_basic():
+    pass
+
+
+
 
 if __name__ == "__main__":
     spark = SparkSession \
@@ -370,3 +375,5 @@ if __name__ == "__main__":
     _aggregation(spark, pd_df_sales, spark_df_sales)
 
     _percentile_calculation(spark)
+
+    _join_basic()
