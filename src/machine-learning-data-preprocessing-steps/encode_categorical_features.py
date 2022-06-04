@@ -3,6 +3,15 @@ from sklearn import preprocessing
 
 
 def encode_nominal_features_using_label_encoder(df_missing_values):
+    """
+    Label encoder is used for ordinal data types (e.g Tshirt size S, M, L or XL)
+    Args:
+        df_missing_values: Pandas dataframe
+
+    Returns:
+
+    """
+
     # pd dataframe without .values
     # ulke_column = df_missing_values.iloc[:, 0:1]
     # numpy ndarray with .values

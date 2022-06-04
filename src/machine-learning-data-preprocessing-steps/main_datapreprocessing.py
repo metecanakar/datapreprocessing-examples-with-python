@@ -4,9 +4,10 @@ import pandas as pd
 from inpute_missing_values import handle_missing_by_mean
 from encode_categorical_features import encode_nominal_features_using_label_encoder, \
     encode_nominat_feature_using_one_hot_encoder
+from train_test_split import split_data_into_train_and_test
 
 
-def merge_inputed_and_encoded_one_df(df_missing_values, imputed_columns, ulke_column_ohe_encoded):
+def merge_dataframes_and_return_multiple_combinations(df_missing_values, imputed_columns, ulke_column_ohe_encoded):
     """
     Merge the inputed and categorical encoded columns to numerical values
      (numpy arrays) into 1 dataframe.
@@ -30,7 +31,7 @@ def merge_inputed_and_encoded_one_df(df_missing_values, imputed_columns, ulke_co
     df_final = pd.concat([df_ulke_and_numerical_columns, df_cinsiyet], axis=1)
     print(df_final)
 
-    return df_final
+    return df_cinsiyet, df_ulke_and_numerical_columns, df_final
 
 
 if __name__ == "__main__":
@@ -47,4 +48,10 @@ if __name__ == "__main__":
     ulke_column_ohe_encoded = encode_nominat_feature_using_one_hot_encoder(df_missing_values)
     print(f"One hot encoded categorical ulke column {ulke_column_ohe_encoded}")
 
-    merged_df = merge_inputed_and_encoded_one_df(df_missing_values, imputed_columns, ulke_column_ohe_encoded)
+    df_cinsiyet, df_ulke_and_numerical_columns, df_final = merge_dataframes_and_return_multiple_combinations(
+        df_missing_values,
+        imputed_columns,
+        ulke_column_ohe_encoded)
+
+    X_train, X_test, y_train, y_test = split_data_into_train_and_test(df_ulke_and_numerical_columns,
+                                                                      df_cinsiyet)

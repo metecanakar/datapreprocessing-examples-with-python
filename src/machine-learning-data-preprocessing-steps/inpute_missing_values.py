@@ -1,5 +1,4 @@
 from sklearn.impute import SimpleImputer
-from sklearn import preprocessing
 import numpy as np
 
 
@@ -30,7 +29,3 @@ def handle_missing_by_mean(df):
     numerical_cols_mean_imputed = imputer_mean.transform(numerical_cols)
 
     return numerical_cols_mean_imputed
-
-
-def merge_all_into_final_df():
-    pass
