@@ -2,9 +2,10 @@
 
 import pandas as pd
 from inpute_missing_values import handle_missing_by_mean
-from encode_categorical_features import encode_nominal_features_using_label_encoder, \
-    encode_nominat_feature_using_one_hot_encoder
+from encode_categorical_features import encode_categorical_features_using_label_encoder, \
+    encode_categorical_features_using_one_hot_encoder
 from train_test_split import split_data_into_train_and_test
+from apply_scaling import apply_standard_scaling
 
 
 def merge_dataframes_and_return_multiple_combinations(df_missing_values, imputed_columns, ulke_column_ohe_encoded):
@@ -12,6 +13,7 @@ def merge_dataframes_and_return_multiple_combinations(df_missing_values, imputed
     Merge the inputed and categorical encoded columns to numerical values
      (numpy arrays) into 1 dataframe.
     Returns:
+        Multiple combinations of merged and unmerged dataframes for further steps.
     """
 
     df_ulke_columns_ohe = pd.DataFrame(data=ulke_column_ohe_encoded, columns=["fr", "tr", "us"])
@@ -43,9 +45,9 @@ if __name__ == "__main__":
     imputed_columns = handle_missing_by_mean(df_missing_values)
     print(f"Imputed columns {imputed_columns}")
 
-    ulke_column_lbl_encoded = encode_nominal_features_using_label_encoder(df_missing_values)
+    ulke_column_lbl_encoded = encode_categorical_features_using_label_encoder(df_missing_values)
 
-    ulke_column_ohe_encoded = encode_nominat_feature_using_one_hot_encoder(df_missing_values)
+    ulke_column_ohe_encoded = encode_categorical_features_using_one_hot_encoder(df_missing_values)
     print(f"One hot encoded categorical ulke column {ulke_column_ohe_encoded}")
 
     df_cinsiyet, df_ulke_and_numerical_columns, df_final = merge_dataframes_and_return_multiple_combinations(
@@ -53,5 +55,9 @@ if __name__ == "__main__":
         imputed_columns,
         ulke_column_ohe_encoded)
 
-    X_train, X_test, y_train, y_test = split_data_into_train_and_test(df_ulke_and_numerical_columns,
+    x_train, x_test, y_train, y_test = split_data_into_train_and_test(df_ulke_and_numerical_columns,
                                                                       df_cinsiyet)
+
+    X_train, X_test = apply_standard_scaling(x_train=x_train, x_test=x_test)
+
+    print(X_train)

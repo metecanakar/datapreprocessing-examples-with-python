@@ -8,8 +8,8 @@ def split_data_into_train_and_test(df_ulke_and_numerical_columns, df_cinsiyet):
 
     # first param: X (independent variables (bagimsiz degiskenler)),
     # second param: y (dependent variable (bagimli degisken) (cinsiyet))
-    X_train, X_test, y_train, y_test = train_test_split(df_ulke_and_numerical_columns, df_cinsiyet,
+    x_train, x_test, y_train, y_test = train_test_split(df_ulke_and_numerical_columns, df_cinsiyet,
                                                         test_size=split_percentage,
                                                         random_state=seed)
 
-    return X_train, X_test, y_train, y_test
+    return x_train, x_test, y_train, y_test

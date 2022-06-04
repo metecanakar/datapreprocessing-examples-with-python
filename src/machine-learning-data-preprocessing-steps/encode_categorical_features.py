@@ -1,8 +1,9 @@
-"""Encodes nominal features using multiple ways"""
+"""Transform categorical (nominal and ordinal) features
+ to numerical features using multiple encoders"""
 from sklearn import preprocessing
 
 
-def encode_nominal_features_using_label_encoder(df_missing_values):
+def encode_categorical_features_using_label_encoder(df_missing_values):
     """
     Label encoder is used for ordinal data types (e.g Tshirt size S, M, L or XL)
     Args:
@@ -24,7 +25,15 @@ def encode_nominal_features_using_label_encoder(df_missing_values):
     return ulke_column_lbl_encoded
 
 
-def encode_nominat_feature_using_one_hot_encoder(df_missing_values):
+def encode_categorical_features_using_one_hot_encoder(df_missing_values):
+    """
+    Apply one hot encoding values converted to columns. Each label contains 1 or 0.
+    Args:
+        df_missing_values:
+
+    Returns:
+
+    """
     ulke_column = df_missing_values.iloc[:, 0:1].values
 
     ohe = preprocessing.OneHotEncoder()
