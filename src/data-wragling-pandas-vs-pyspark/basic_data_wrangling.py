@@ -249,6 +249,103 @@ def _aggregation(spark, pd_df_sales, spark_df_sales):
         sort_values(by="year", ascending=False)
 
 
+def _custom_aggregation(spark, pd_df_sales, spark_df_sales):
+    """
+    Do custom aggregations using pyspark instead of using the existing functions such as max, min, mean etc.
+    Args:
+        spark: SparkSession
+        pd_df_sales: Pandas df
+        spark_df_sales: Spark df
+    """
+    # add the net_sales_times2 column
+    spark_df_sales_with_net_sales_times_2 = spark_df_sales.withColumn("net_sales_times2", F.col("net_sales") * 2)
+    """
+    spark_df_sales_with_net_sales_times_2.show() outputs:
+    +----------+---------+--------+----+----------------+
+    | date | net_sales | store_id | year | net_sales_times2 |
+    +----------+---------+--------+----+----------------+
+    | 2022 - 02 - 01 | 10 | 1 | 2022 | 20 |
+    | 2022 - 02 - 02 | 20 | 2 | 2022 | 40 |
+    | 2022 - 02 - 03 | 50 | 2 | 2022 | 100 |
+    | 2021 - 02 - 01 | 30 | 3 | 2021 | 60 |
+    | 2021 - 02 - 02 | 40 | 4 | 2021 | 80 |
+    | 2021 - 02 - 03 | 80 | 4 | 2021 | 160 |
+    +----------+---------+--------+----+----------------+
+    """
+
+    """
+    # pyspark
+    # using GroupedData.agg
+    # dictionary expression multiple metrics on the same column doesn't work for some reason. Therefore, use functions
+    # exprs = {"net_sales": "mean", "net_sales": "max"}
+    spark_df_sales_with_mean_and_max_sales = spark_df_sales_with_net_sales_times_2.groupBy("year"). \
+        agg(F.abs(F.col("net_sales")) + F.abs(F.col("net_sales")))
+
+
+    spark_df_sales_with_mean_and_max_sales.show()
+    """
+
+    # using pure sql
+    spark_df_sales_with_net_sales_times_2.createOrReplaceTempView("sales")
+    query = "SELECT store_id, year, SUM(net_sales) as sum1, SUM(net_sales_times2) as sum2" \
+            " FROM sales" \
+            " GROUP BY store_id, year"
+    df_sum_each_column_separately = spark.sql(query)
+    df_sum_each_column_separately.show()
+    """
+    df_sum_each_column_separately.show()
+    Outputs: 
+    +--------+----+----+----+
+    |store_id|year|sum1|sum2|
+    +--------+----+----+----+
+    |       1|2022|  10|  20|
+    |       2|2022|  70| 140|
+    |       3|2021|  30|  60|
+    |       4|2021| 120| 240|
+    +--------+----+----+----+
+    """
+
+    spark_df_sales_with_net_sales_times_2.createOrReplaceTempView("sales")
+    query = "SELECT store_id, year, SUM(net_sales + net_sales_times2)" \
+            " FROM sales" \
+            " GROUP BY store_id, year"
+    df_sum_net_sales_w_net_sales_times_2 = spark.sql(query)
+    df_sum_net_sales_w_net_sales_times_2.show()
+    """
+    Outputs:
+    +--------+----+-----------------------------------+
+    |store_id|year|sum((net_sales + net_sales_times2))|
+    +--------+----+-----------------------------------+
+    |       1|2022|                                 30|
+    |       2|2022|                                210|
+    |       3|2021|                                 90|
+    |       4|2021|                                360|
+    +--------+----+-----------------------------------+
+    """
+
+    df_sum_of_each_row_separately = spark_df_sales_with_net_sales_times_2.withColumn("sum_of_each_row_separately",
+                                                                                     F.col("net_sales") + F.col(
+                                                                                         "net_sales_times2"))
+    df_sum_of_each_row_separately.show()
+
+    df_sum_of_each_row_separately.createOrReplaceTempView("sales")
+    query = "SELECT store_id, year, SUM(sum_of_each_row_separately)" \
+            " FROM sales" \
+            " GROUP BY store_id, year"
+    df_sum_of_each_row_separately_and_then_group_by = spark.sql(query)
+    df_sum_of_each_row_separately_and_then_group_by.show()
+    """Outputs:
+    +--------+----+-------------------------------+
+    |store_id|year|sum(sum_of_each_row_separately)|
+    +--------+----+-------------------------------+
+    |       1|2022|                             30|
+    |       2|2022|                            210|
+    |       3|2021|                             90|
+    |       4|2021|                            360|
+    +--------+----+-------------------------------+
+    """
+
+
 def _percentile_calculation(spark):
     """
     Example usage of percentile_approx with explode and alias.
@@ -341,10 +438,9 @@ def _percentile_calculation(spark):
     # | 2022 | 30.0 |
     # +----+----------------------------------+
 
+
 def _join_basic():
     pass
-
-
 
 
 if __name__ == "__main__":
@@ -377,3 +473,5 @@ if __name__ == "__main__":
     _percentile_calculation(spark)
 
     _join_basic()
+
+    _custom_aggregation(spark, pd_df_sales, spark_df_sales)
