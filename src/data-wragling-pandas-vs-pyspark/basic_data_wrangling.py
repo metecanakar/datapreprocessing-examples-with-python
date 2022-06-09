@@ -1,6 +1,7 @@
 import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql import Window
 import numpy as np
 
 
@@ -257,10 +258,10 @@ def _custom_aggregation(spark, pd_df_sales, spark_df_sales):
         pd_df_sales: Pandas df
         spark_df_sales: Spark df
     """
-    # add the net_sales_times2 column
-    spark_df_sales_with_net_sales_times_2 = spark_df_sales.withColumn("net_sales_times2", F.col("net_sales") * 2)
+    # add the net_sales_div2 column
+    spark_df_sales_with_net_sales_div_2 = spark_df_sales.withColumn("net_sales_div2", F.col("net_sales") / 2)
     """
-    spark_df_sales_with_net_sales_times_2.show() outputs:
+    spark_df_sales_with_net_sales_div_2.show() outputs:
     +----------+---------+--------+----+----------------+
     | date | net_sales | store_id | year | net_sales_times2 |
     +----------+---------+--------+----+----------------+
@@ -286,8 +287,8 @@ def _custom_aggregation(spark, pd_df_sales, spark_df_sales):
     """
 
     # using pure sql
-    spark_df_sales_with_net_sales_times_2.createOrReplaceTempView("sales")
-    query = "SELECT store_id, year, SUM(net_sales) as sum1, SUM(net_sales_times2) as sum2" \
+    spark_df_sales_with_net_sales_div_2.createOrReplaceTempView("sales")
+    query = "SELECT store_id, year, SUM(net_sales) as sum1, SUM(net_sales_div2) as sum2" \
             " FROM sales" \
             " GROUP BY store_id, year"
     df_sum_each_column_separately = spark.sql(query)
@@ -295,64 +296,131 @@ def _custom_aggregation(spark, pd_df_sales, spark_df_sales):
     """
     df_sum_each_column_separately.show()
     Outputs: 
-    +--------+----+----+----+
-    |store_id|year|sum1|sum2|
-    +--------+----+----+----+
-    |       1|2022|  10|  20|
-    |       2|2022|  70| 140|
-    |       3|2021|  30|  60|
-    |       4|2021| 120| 240|
-    +--------+----+----+----+
+
     """
 
-    spark_df_sales_with_net_sales_times_2.createOrReplaceTempView("sales")
-    query = "SELECT store_id, year, SUM(net_sales + net_sales_times2)" \
+    spark_df_sales_with_net_sales_div_2.createOrReplaceTempView("sales")
+    query = "SELECT store_id, year, SUM(net_sales + net_sales_div2)" \
             " FROM sales" \
             " GROUP BY store_id, year"
-    df_sum_net_sales_w_net_sales_times_2 = spark.sql(query)
-    df_sum_net_sales_w_net_sales_times_2.show()
+    df_sum_net_sales_w_net_sales_div_2 = spark.sql(query)
+    df_sum_net_sales_w_net_sales_div_2.show()
     """
     Outputs:
-    +--------+----+-----------------------------------+
-    |store_id|year|sum((net_sales + net_sales_times2))|
-    +--------+----+-----------------------------------+
-    |       1|2022|                                 30|
-    |       2|2022|                                210|
-    |       3|2021|                                 90|
-    |       4|2021|                                360|
-    +--------+----+-----------------------------------+
+
     """
 
-    df_sum_of_each_row_separately = spark_df_sales_with_net_sales_times_2.withColumn("sum_of_each_row_separately",
-                                                                                     F.col("net_sales") + F.col(
-                                                                                         "net_sales_times2"))
-    df_sum_of_each_row_separately.show()
 
-    df_sum_of_each_row_separately.createOrReplaceTempView("sales")
-    query = "SELECT store_id, year, SUM(sum_of_each_row_separately)" \
-            " FROM sales" \
-            " GROUP BY store_id, year"
-    df_sum_of_each_row_separately_and_then_group_by = spark.sql(query)
+def _custom_aggregation_mape_option_1(spark, spark_df_sales):
+    """
+    1. Calculate absolute percentage error (APE)
+    2. Count the 'n' in each group (store, year combinations)
+    3. Calculate the ape with sum (within each group)
+    4. Join count n with ape_w_sum to calculate MAPE
+    5. Calculate MAPE
+
+    Args:
+        spark:
+        spark_df_sales:
+
+    Returns:
+
+    """
+    # add the net_sales_div2 column
+    spark_df_sales_with_net_sales_div_2 = spark_df_sales.withColumn("net_sales_div2", F.col("net_sales") / 2)
+    """
+    spark_df_sales_with_net_sales_div_2.show() outputs:
+    +----------+---------+--------+----+--------------+
+    |      date|net_sales|store_id|year|net_sales_div2|
+    +----------+---------+--------+----+--------------+
+    |2022-02-01|       10|       1|2022|           5.0|
+    |2022-02-02|       20|       2|2022|          10.0|
+    |2022-02-03|       50|       2|2022|          25.0|
+    |2021-02-01|       30|       3|2021|          15.0|
+    |2021-02-02|       40|       4|2021|          20.0|
+    |2021-02-03|       80|       4|2021|          40.0|
+    +----------+---------+--------+----+--------------+
+    """
+
+    # MAPE CALCULATION:
+    # calculate absolute percentage error (ape) without summing the rows in groups
+    df_ape_without_sum = spark_df_sales_with_net_sales_div_2.withColumn("ape_wo_sum",
+                                                                        (F.abs(F.col("net_sales") - F.col(
+                                                                            "net_sales_div2"))) / F.col("net_sales"))
+    df_ape_without_sum.show()
+
+    # count the 'n' in each group
+    df_ape_without_sum.createOrReplaceTempView("df_ape_without_sum")
+    query_count_n = "SELECT store_id, year, COUNT(*) as n" \
+                    " FROM df_ape_without_sum" \
+                    " GROUP BY store_id, year"
+    df_count_n = spark.sql(query_count_n)
+    df_count_n.show()
+
+    # sum ape_wo_sum so that we calculate the ape (absolute percentage error)
+    query_ape_w_sum = "SELECT store_id, year, SUM(ape_wo_sum) as ape_w_sum" \
+                      " FROM df_ape_without_sum" \
+                      " GROUP BY store_id, year"
+    df_sum_of_each_row_separately_and_then_group_by = spark.sql(query_ape_w_sum)
     df_sum_of_each_row_separately_and_then_group_by.show()
-    """Outputs:
-    +--------+----+-------------------------------+
-    |store_id|year|sum(sum_of_each_row_separately)|
-    +--------+----+-------------------------------+
-    |       1|2022|                             30|
-    |       2|2022|                            210|
-    |       3|2021|                             90|
-    |       4|2021|                            360|
-    +--------+----+-------------------------------+
+
+    # join count_n dataframe with ape_with_sum_df so that we can calculate mape
+    df_ape_w_sum_and_count_n = df_sum_of_each_row_separately_and_then_group_by.join(df_count_n,
+                                                                                    on=["store_id", "year"],
+                                                                                    how="inner")
+
+    # calculate mape by dividing ape_w_sum to n
+    df_mape = df_ape_w_sum_and_count_n.withColumn("mape", F.col("ape_w_sum") / F.col("n")).select("store_id", "year",
+                                                                                                  "mape")
+    df_mape.show()
+
+
+def _custom_aggregation_mape_option_2(spark, spark_df_sales):
     """
+    Try with window function instead of join but won't work
+    Args:
+        spark:
+        spark_df_sales:
+
+    Returns:
+
+    """
+    # add the net_sales_div2 column
+    spark_df_sales_with_net_sales_div_2 = spark_df_sales.withColumn("net_sales_div2", F.col("net_sales") / 2)
+    """
+    spark_df_sales_with_net_sales_div_2.show() outputs:
+
+    """
+
+    # MAPE CALCULATION:
+    # calculate absolute percentage error (ape) without summing the rows in groups
+    df_ape_without_sum = spark_df_sales_with_net_sales_div_2.withColumn("ape_wo_sum",
+                                                                        (F.abs(F.col("net_sales") - F.col(
+                                                                            "net_sales_div2"))) / F.col("net_sales"))
+    df_ape_without_sum.show()
+
+    window_spec = Window.partitionBy("store_id", "year")
+    df_ape_without_sum_n = df_ape_without_sum.withColumn("n", F.count("*").over(window_spec))
+
+    # sum ape_wo_sum so that we calculate the ape (absolute percentage error)
+    # won't work due to => pyspark.sql.utils.AnalysisException: expression 'df_ape_without_sum_n.n' is neither present in the group by, nor is it an aggregate...
+    # a workaround could be assigning 1 to each row and here do SUM(ape_wo_sum)/SUM(n)
+    df_ape_without_sum_n.createOrReplaceTempView("df_ape_without_sum_n")
+    query_ape_w_sum = "SELECT store_id, year, SUM(ape_wo_sum)/n as mape" \
+                      " FROM df_ape_without_sum_n" \
+                      " GROUP BY store_id, year"
+    df_sum_of_each_row_separately_and_then_group_by = spark.sql(query_ape_w_sum)
+    df_sum_of_each_row_separately_and_then_group_by.show()
 
 
 def _percentile_calculation(spark):
     """
-    Example usage of percentile_approx with explode and alias.
-    Args:
-        spark: SparkSession
+        Example usage of percentile_approx with explode and alias.
+        Args:
+            spark: SparkSession
 
-    """
+        """
+
     # create an example dataframe
     notes = {"year": [2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021, 2021,
                       2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022, 2022],
@@ -431,6 +499,7 @@ def _percentile_calculation(spark):
     spark_df_notes.groupby("year").agg(
         ((F.percentile_approx("notes", 0.75) - F.percentile_approx("notes", 0.25)) / 2).alias(
             "dif_3rd_1st_quartiles_divided_by_2")).show()
+
     # +----+----------------------------------+
     # | year | dif_3rd_1st_quartiles_divided_by_2 |
     # +----+----------------------------------+
@@ -475,3 +544,7 @@ if __name__ == "__main__":
     _join_basic()
 
     _custom_aggregation(spark, pd_df_sales, spark_df_sales)
+
+    _custom_aggregation_mape_option_1(spark, spark_df_sales)
+
+    #_custom_aggregation_mape_option_2(spark, spark_df_sales)
