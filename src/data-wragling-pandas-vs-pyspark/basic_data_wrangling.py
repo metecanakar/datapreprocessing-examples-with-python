@@ -1,7 +1,10 @@
+import datetime
+
 import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql import Window
+from pyspark.sql.types import *
 import numpy as np
 
 
@@ -561,6 +564,54 @@ def _percentile_calculation(spark):
     # | 2022 | 30.0 |
     # +----+----------------------------------+
 
+def _aggregation_withcolumn_vs_alias(spark, spark_df_sales):
+    """
+    Create a new aggregated column either via withColumnRenamed or alias
+    Args:
+        spark:
+        spark_df_sales:
+
+    Returns:
+
+    """
+    spark_df_sales_mean_with_column = spark_df_sales.groupby(["year"]).agg({"net_sales": "mean"}).withColumnRenamed("avg(net_sales)", "mean_sales")
+    spark_df_sales_mean_with_column.show()
+
+    # alias is called right after the column creation
+    spark_df_sales_mean_alias = spark_df_sales.groupby(["year"]).agg(F.mean("net_sales").alias("mean_sales"))
+    spark_df_sales_mean_alias.show()
+
+
+def _create_spark_df_with_customized_schema(spark):
+    """
+    Creates a spark dataframe with the customized schema.
+    Schema:
+    DataFrame[person_name: string, person_id: int, birthdate: date, hobies_struct: struct<hobby1:string,hobby2:string>]
+    Args:
+        spark: SparkSession
+
+    Returns: Spark dataframe
+
+    """
+    schema = StructType([
+        StructField("person_name", StringType(), nullable=False),
+        StructField("person_id", IntegerType(), nullable=False),
+        StructField("birthdate", DateType(), nullable=True),
+        StructField("hobies_struct", StructType([
+            StructField("hobby1", StringType(), nullable=False),
+            StructField("hobby2", StringType(), nullable=False)
+        ]), nullable=False)
+    ])
+    rows = [("jane", 1, datetime.date(1991, 5, 30), ["swimming", "football"]),
+            ("john", 2, datetime.date(1993, 6, 25), ["jogging", "trekking"]),
+            ("depp", 3, None, ["film", "running"])]
+    df = spark.createDataFrame(data=rows, schema=schema)
+    df.show()
+    # see the schema
+    print(df)
+    return df
+
+
 
 def _join_basic():
     pass
@@ -576,6 +627,8 @@ if __name__ == "__main__":
     pd_df_sales, pd_df_stores = _create_pandas_dfs()
 
     spark_df_sales, spark_df_stores = _create_spark_df(spark, pd_df_sales, pd_df_stores)
+
+    _create_spark_df_with_customized_schema(spark)
 
     _immutability_check(pd_df_sales, spark_df_sales)
 
@@ -604,3 +657,5 @@ if __name__ == "__main__":
     # _custom_aggregation_mape_option_2(spark, spark_df_sales)
 
     _custom_aggregation_mape_option_3(spark, spark_df_sales)
+
+    _aggregation_withcolumn_vs_alias(spark, spark_df_sales)
