@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import pandas as pd
 from pyspark.sql import SparkSession
@@ -6,6 +7,11 @@ from pyspark.sql import functions as F
 from pyspark.sql import Window
 from pyspark.sql.types import *
 import numpy as np
+
+from custom_logger.custom_logger import DefaultLogger, CustomAdapterCustomSparkSchemaFirstRow, \
+    CustomAdapterCustomSparkSchemaSecondRow
+
+logger = logging.getLogger(__name__)
 
 
 def _create_pandas_dfs():
@@ -564,6 +570,7 @@ def _percentile_calculation(spark):
     # | 2022 | 30.0 |
     # +----+----------------------------------+
 
+
 def _aggregation_withcolumn_vs_alias(spark, spark_df_sales):
     """
     Create a new aggregated column either via withColumnRenamed or alias
@@ -574,7 +581,8 @@ def _aggregation_withcolumn_vs_alias(spark, spark_df_sales):
     Returns:
 
     """
-    spark_df_sales_mean_with_column = spark_df_sales.groupby(["year"]).agg({"net_sales": "mean"}).withColumnRenamed("avg(net_sales)", "mean_sales")
+    spark_df_sales_mean_with_column = spark_df_sales.groupby(["year"]).agg({"net_sales": "mean"}).withColumnRenamed(
+        "avg(net_sales)", "mean_sales")
     spark_df_sales_mean_with_column.show()
 
     # alias is called right after the column creation
@@ -593,6 +601,25 @@ def _create_spark_df_with_customized_schema(spark):
     Returns: Spark dataframe
 
     """
+
+    # using the default logger
+    logger.info("Starting to create a customized spark dataframe")
+
+    extra_first_row = {"person_name_1st_row": "Jane", "hobby_1st_row": "swimming and football"}
+    custom_adapter_first_row = CustomAdapterCustomSparkSchemaFirstRow(logger, extra_first_row)
+    # using the custom custom_adapter_first_row to log
+    custom_adapter_first_row.info("First row")
+
+    logger.info("First row logged successfully.")
+
+    extra_second_row = {"person_name_2nd_row": "john", "hobby_2nd_row": "jogging and trekking"}
+    custom_adapter_second_row = CustomAdapterCustomSparkSchemaSecondRow(logger, extra_second_row)
+    # using the custom custom_adapter_second_row to log
+    custom_adapter_second_row.info("Second row")
+
+    # again using the default logger
+    logger.info("Second row logged successfully.")
+
     schema = StructType([
         StructField("person_name", StringType(), nullable=False),
         StructField("person_id", IntegerType(), nullable=False),
@@ -612,7 +639,6 @@ def _create_spark_df_with_customized_schema(spark):
     return df
 
 
-
 def _join_basic():
     pass
 
@@ -623,6 +649,8 @@ if __name__ == "__main__":
         .appName("Data Wrangling Examples") \
         .config("spark.some.config.option", "some-value") \
         .getOrCreate()
+
+    DefaultLogger.configure_logger()
 
     pd_df_sales, pd_df_stores = _create_pandas_dfs()
 
