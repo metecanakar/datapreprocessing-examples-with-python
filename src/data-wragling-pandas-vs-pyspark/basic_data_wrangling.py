@@ -1,5 +1,6 @@
 import datetime
 import logging
+from collections import namedtuple
 
 import pandas as pd
 from pyspark.sql import SparkSession
@@ -620,6 +621,7 @@ def _create_spark_df_with_customized_schema(spark):
     # again using the default logger
     logger.info("Second row logged successfully.")
 
+    # define the custom schema
     schema = StructType([
         StructField("person_name", StringType(), nullable=False),
         StructField("person_id", IntegerType(), nullable=False),
@@ -634,8 +636,19 @@ def _create_spark_df_with_customized_schema(spark):
             ("depp", 3, None, ["film", "running"])]
     df = spark.createDataFrame(data=rows, schema=schema)
     df.show()
-    # see the schema
-    print(df)
+
+
+    # use named tuples instead of StructType
+    # When schema is None, it will try to infer the schema (column names and types) from
+    # data, which should be an RDD of either Row, namedtuple, or dict.
+    Rows = namedtuple("Rows", ["person_name", "person_id", "birthdate", "hobies"])
+    Hobies = namedtuple("Hobies", ["hobby1", "hobby2"])
+    rows_as_named_tuple = [Rows("jane", 1, datetime.date(1991, 5, 30), Hobies("swimming", "football")),
+                           Rows("john", 2, datetime.date(1993, 6, 25), Hobies("jogging", "trekking")),
+                           Rows("depp", 3, None, Hobies("film", "running"))]
+    df_created_with_named_tuple = spark.createDataFrame(data=rows_as_named_tuple)
+    df_created_with_named_tuple.show()
+
     return df
 
 
