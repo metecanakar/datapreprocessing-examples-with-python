@@ -656,6 +656,61 @@ def _join_basic():
     pass
 
 
+def _do_pivoting(spark):
+    # create dataframe
+    d = [{'customer_id': 1, 'month': "Jan", "sales_amount": 10},
+         {'customer_id': 1, 'month': "Jan", "sales_amount": 10},
+         {'customer_id': 1, 'month': "Feb", "sales_amount": 20},
+         {'customer_id': 1, 'month': "Feb", "sales_amount": 20},
+         {'customer_id': 2, 'month': "Jan", "sales_amount": 30},
+         {'customer_id': 2, 'month': "Jan", "sales_amount": 30},
+         {'customer_id': 2, 'month': "Feb", "sales_amount": 60},
+         {'customer_id': 2, 'month': "Feb", "sales_amount": 60},
+         {"customer_id": 1, "month": "tmax", "sales_amount": 24},
+         {"customer_id": 2, "month": "tmax", "sales_amount": 25}
+         ]
+
+    sales_df_for_pivot = spark.createDataFrame(d)
+
+    sales_df_for_pivot.createOrReplaceTempView("sales_df_for_pivot")
+
+    # select pivot all months
+    query_all_months =\
+        """
+            SELECT customer_id, Jan, Feb
+            FROM sales_df_for_pivot
+            PIVOT 
+            (
+                SUM(sales_amount) AS total
+                FOR month IN ("Jan" AS Jan, "Feb" AS Feb)
+            );
+            """
+    df_pvt_all_months = spark.sql(query_all_months)
+    df_pvt_all_months.show()
+
+    # pivot only tmax
+    query_pivot_tmax =\
+        """
+            SELECT customer_id, tmax
+            FROM sales_df_for_pivot
+            PIVOT 
+            (
+                SUM(sales_amount) AS total
+                FOR month IN ("tmax" AS tmax)
+            );
+            """
+    df_pvt_tmax = spark.sql(query_pivot_tmax)
+    df_pvt_tmax.show()
+
+    # pivot only one month (Jan)
+    # And from the initial dataframe read only the values without the row tmax
+    # then join with the df_pvt_tmax so that you have month column containing Jan and Feb and
+    # a separate tmax column
+    df_wo_tmax = sales_df_for_pivot.filter(sales_df_for_pivot["month"] != "tmax")
+    df_wo_tmax.show()
+
+    df_joined = df_pvt_tmax.join(df_wo_tmax, "customer_id", "inner")
+
 if __name__ == "__main__":
     spark = SparkSession \
         .builder \
@@ -700,3 +755,5 @@ if __name__ == "__main__":
     _custom_aggregation_mape_option_3(spark, spark_df_sales)
 
     _aggregation_withcolumn_vs_alias(spark, spark_df_sales)
+
+    _do_pivoting(spark)
