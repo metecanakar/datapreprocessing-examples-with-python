@@ -637,7 +637,6 @@ def _create_spark_df_with_customized_schema(spark):
     df = spark.createDataFrame(data=rows, schema=schema)
     df.show()
 
-
     # use named tuples instead of StructType
     # When schema is None, it will try to infer the schema (column names and types) from
     # data, which should be an RDD of either Row, namedtuple, or dict.
@@ -675,7 +674,7 @@ def _do_pivoting(spark):
     sales_df_for_pivot.createOrReplaceTempView("sales_df_for_pivot")
 
     # select pivot all months
-    query_all_months =\
+    query_all_months = \
         """
             SELECT customer_id, Jan, Feb
             FROM sales_df_for_pivot
@@ -689,7 +688,7 @@ def _do_pivoting(spark):
     df_pvt_all_months.show()
 
     # pivot only tmax
-    query_pivot_tmax =\
+    query_pivot_tmax = \
         """
             SELECT customer_id, tmax
             FROM sales_df_for_pivot
@@ -711,6 +710,77 @@ def _do_pivoting(spark):
 
     df_joined = df_pvt_tmax.join(df_wo_tmax, "customer_id", "inner")
 
+
+def _right_and_full_outer_join(spark):
+    # create dataframe
+    d_left = [{'date_': "2000-01-01", "sales": 1},
+              {'date_': "2000-01-02", "sales": 2},
+              {'date_': "2000-01-03", "sales": 3}]
+
+    left_df = spark.createDataFrame(d_left)
+
+    # create dataframe
+    d_right = [{'date_': "2000-01-03", "day": "mon"},
+               {'date_': "2000-01-04", "day": "tue"},
+               {'date_': "2000-01-05", "day": "wed"}]
+
+    right_df = spark.createDataFrame(d_right)
+
+    left_df.createOrReplaceTempView("left_df")
+    right_df.createOrReplaceTempView("right_df")
+
+    # do full outer join testing
+    full_join_query = "SELECT left_df.date_ as left_date, right_df.date_ as right_date, left_df.sales \
+                        FROM left_df \
+                        FULL OUTER JOIN right_df \
+                        ON left_df.date_ = right_df.date_;"
+
+    res_full_outer_join = spark.sql(full_join_query)
+
+    res_full_outer_join.show()
+
+    # replace nulls in the left_date with right_date
+    nulls_handled_df_when_otherwise = res_full_outer_join.withColumn("left_date",
+                                                                     F.when(res_full_outer_join.left_date.isNull(),
+                                                                            res_full_outer_join.right_date).otherwise(
+                                                                         res_full_outer_join.left_date).alias(
+                                                                         "left_date"))
+    nulls_handled_df_when_otherwise.show()
+
+    # replace nulls in the left_date with coalesce
+    nulls_handled_df_coalesce = res_full_outer_join.select(
+        F.coalesce(res_full_outer_join["left_date"], res_full_outer_join["right_date"]).alias("date_"), "sales")
+    nulls_handled_df_coalesce.show()
+
+    # do full outer join and coalesce together
+    full_join_query_with_coalesce = "SELECT COALESCE(left_date, right_date) as date_, sales FROM" \
+                                    "(SELECT left_df.date_ as left_date, right_df.date_ as right_date, left_df.sales as sales \
+                                    FROM left_df \
+                                    FULL OUTER JOIN right_df \
+                                    ON left_df.date_ = right_df.date_);"
+
+    res_full_outer_join_with_coalesce = spark.sql(full_join_query_with_coalesce)
+    res_full_outer_join_with_coalesce.show()
+
+    # do right join testing
+    right_join_query = "SELECT right_df.date_, left_df.sales \
+                        FROM left_df \
+                        RIGHT JOIN right_df \
+                        ON left_df.date_ = right_df.date_;"
+
+    res_right_join = spark.sql(right_join_query)
+    res_right_join.show()
+    """
+    +----------+-----+
+    |     date_|sales|
+    +----------+-----+
+    |2000-01-03|    3|
+    |2000-01-04| null|
+    |2000-01-05| null|
+    +----------+-----+
+    """
+
+
 if __name__ == "__main__":
     spark = SparkSession \
         .builder \
@@ -719,6 +789,8 @@ if __name__ == "__main__":
         .getOrCreate()
 
     DefaultLogger.configure_logger()
+
+    _right_and_full_outer_join(spark)
 
     pd_df_sales, pd_df_stores = _create_pandas_dfs()
 
