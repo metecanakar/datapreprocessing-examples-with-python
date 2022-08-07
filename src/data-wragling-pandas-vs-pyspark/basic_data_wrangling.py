@@ -712,6 +712,21 @@ def _do_pivoting(spark):
 
 
 def _right_and_full_outer_join(spark):
+    """
+    PURE SQL example would be:
+    select date_, COALESCE(sales, 0) as sales -- second coalesce: replaces null sales values with 0
+    FROM
+    (SELECT COALESCE(left_date, right_date) as date_, sales FROM  -- first coalesce: returns the first date column that is not null
+    (SELECT sales_import.date_ as left_date, dates.date_ as right_date, sales_import.sales as sales
+    FROM challenge.sales_import sales_import
+    FULL OUTER JOIN challenge.dates dates
+    ON sales_import.date_ = dates.date_) t2)t3;
+    Args:
+        spark:
+
+    Returns:
+
+    """
     # create dataframe
     d_left = [{'date_': "2000-01-01", "sales": 1},
               {'date_': "2000-01-02", "sales": 2},
@@ -761,6 +776,10 @@ def _right_and_full_outer_join(spark):
 
     res_full_outer_join_with_coalesce = spark.sql(full_join_query_with_coalesce)
     res_full_outer_join_with_coalesce.show()
+
+    # handle null sales values for dates (fill with 0)
+    res_full_outer_join_with_coalesce_wo_nulls = res_full_outer_join_with_coalesce.fillna(0, "sales")
+    res_full_outer_join_with_coalesce_wo_nulls.show()
 
     # do right join testing
     right_join_query = "SELECT right_df.date_, left_df.sales \
