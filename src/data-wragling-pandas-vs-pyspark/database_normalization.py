@@ -168,7 +168,7 @@ customerorder.show()
 
 # ---------------- 3NF start ---------------------
 # 3NF requires that there are no transitive dependencies.
-# The CustomerOrder table has a transitive dependency between CustomerID and CustomerName, and CustomerAddress.
+# The CustomerOrder table has a transitive dependency between CustomerID => CustomerName, CustomerAddress.
 # To remove the transitive dependency, we need to create a separate table for Customer.
 # Non-key determinant (CustomerID) becomes the primary key of the new table, and the transitive dependent attributes become the columns of the new table.
 # And the non-key determinant (CustomerID) stays in the Order table as a foreign key.
