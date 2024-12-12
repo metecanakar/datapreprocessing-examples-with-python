@@ -8,7 +8,8 @@ class DefaultLogger():
         DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         logging.basicConfig(level=logging.INFO,
                             stream=sys.stdout,
-                            format=DEFAULT_FORMAT)
+                            format=DEFAULT_FORMAT,
+                            force=True)
 
         logger = logging.getLogger(__name__)
 

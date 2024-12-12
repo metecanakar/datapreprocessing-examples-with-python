@@ -670,6 +670,22 @@ def _do_pivoting(spark):
          ]
 
     sales_df_for_pivot = spark.createDataFrame(d)
+    """
+    +-----------+-----+------------+
+    |customer_id|month|sales_amount|
+    +-----------+-----+------------+
+    |          1|  Jan|          10|
+    |          1|  Jan|          10|
+    |          1|  Feb|          20|
+    |          1|  Feb|          20|
+    |          2|  Jan|          30|
+    |          2|  Jan|          30|
+    |          2|  Feb|          60|
+    |          2|  Feb|          60|
+    |          1| tmax|          24|
+    |          2| tmax|          25|
+    +-----------+-----+------------+
+    """
 
     sales_df_for_pivot.createOrReplaceTempView("sales_df_for_pivot")
 
@@ -685,6 +701,14 @@ def _do_pivoting(spark):
             );
             """
     df_pvt_all_months = spark.sql(query_all_months)
+    """
+    +-----------+---+---+
+    |customer_id|Jan|Feb|
+    +-----------+---+---+
+    |          1| 20| 40|
+    |          2| 60|120|
+    +-----------+---+---+
+    """
     df_pvt_all_months.show()
 
     # pivot only tmax
@@ -700,6 +724,14 @@ def _do_pivoting(spark):
             """
     df_pvt_tmax = spark.sql(query_pivot_tmax)
     df_pvt_tmax.show()
+    """
+    +-----------+----+
+    |customer_id|tmax|
+    +-----------+----+
+    |          1|  24|
+    |          2|  25|
+    +-----------+----+
+    """
 
     # pivot only one month (Jan)
     # And from the initial dataframe read only the values without the row tmax
@@ -707,6 +739,20 @@ def _do_pivoting(spark):
     # a separate tmax column
     df_wo_tmax = sales_df_for_pivot.filter(sales_df_for_pivot["month"] != "tmax")
     df_wo_tmax.show()
+    """
+    +-----------+-----+------------+
+    |customer_id|month|sales_amount|
+    +-----------+-----+------------+
+    |          1|  Jan|          10|
+    |          1|  Jan|          10|
+    |          1|  Feb|          20|
+    |          1|  Feb|          20|
+    |          2|  Jan|          30|
+    |          2|  Jan|          30|
+    |          2|  Feb|          60|
+    |          2|  Feb|          60|
+    +-----------+-----+------------+
+    """
 
     df_joined = df_pvt_tmax.join(df_wo_tmax, "customer_id", "inner")
 
